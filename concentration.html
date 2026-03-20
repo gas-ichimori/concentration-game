@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>神経衰弱 | oneforest</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1b5e38;
+      --bg2: #155230;
+      --gold: #f9a825;
+      --gold2: #ffd54f;
+      --red: #c62828;
+      --black: #1a1a2e;
+      --card-back-color: #1a237e;
+      --card-front-color: #fafafa;
+      --score-h: 46px;
+      --status-h: 22px;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    /* ─── 縦向き警告 ─── */
+    #rotate-msg {
+      display: none;
+      position: fixed; inset: 0;
+      background: #000e;
+      color: #fff;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 9999;
+      gap: 14px;
+      text-align: center;
+    }
+    .rotate-arrow {
+      font-size: 3rem;
+      animation: spin 2s linear infinite;
+    }
+    @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+    @media screen and (orientation: portrait) {
+      #rotate-msg { display: flex !important; }
+      #app        { display: none !important; }
+    }
+
+    /* ─── アプリ本体 ─── */
+    #app { width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+    .screen { display: none; width: 100%; height: 100%; flex-direction: column; }
+    .screen.active { display: flex; }
+
+    /* ════════════════════════════════════
+       セットアップ画面
+    ════════════════════════════════════ */
+    #setup-screen {
+      align-items: center; justify-content: center;
+      gap: 10px; padding: 10px 16px;
+      overflow-y: auto;
+    }
+
+    #setup-screen h1 {
+      color: var(--gold);
+      font-size: clamp(1.1rem, 3.5vw, 2rem);
+      text-shadow: 0 2px 6px #0006;
+      letter-spacing: .08em;
+    }
+
+    .setup-box {
+      background: #0004;
+      border: 1px solid #fff2;
+      border-radius: 10px;
+      padding: 10px 14px;
+      width: 100%;
+      max-width: 620px;
+    }
+
+    .setup-box > .lbl {
+      color: #ccc; font-size: .75rem;
+      margin-bottom: 8px; display: block;
+    }
+
+    /* 人数ボタン */
+    .count-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .cnt-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 2px solid #777;
+      background: transparent; color: #fff;
+      font-size: .9rem; cursor: pointer;
+      transition: all .2s;
+    }
+    .cnt-btn.on {
+      background: var(--gold); border-color: var(--gold);
+      color: #000; font-weight: bold;
+    }
+
+    /* プレイヤー設定リスト */
+    #player-list { display: flex; flex-direction: column; gap: 5px; max-height: 180px; overflow-y: auto; }
+    .p-row { display: flex; align-items: center; gap: 8px; }
+    .p-row .p-num { color: var(--gold); font-size: .78rem; width: 22px; flex-shrink: 0; }
+    .p-row input[type="text"] {
+      flex: 1; background: #fff2;
+      border: 1px solid #fff3; border-radius: 5px;
+      color: #fff; padding: 4px 8px; font-size: .82rem;
+    }
+    .p-row input[type="text"]::placeholder { color: #fff5; }
+    .ai-lbl {
+      display: flex; align-items: center; gap: 4px;
+      color: #bbb; font-size: .78rem; cursor: pointer; flex-shrink: 0;
+    }
+    .ai-lbl input { cursor: pointer; accent-color: var(--gold); }
+
+    /* ゲーム設定 */
+    .diff-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .diff-btn {
+      padding: 5px 12px; border-radius: 20px;
+      border: 1.5px solid #666;
+      background: transparent; color: #ccc;
+      font-size: .78rem; cursor: pointer; transition: all .2s;
+    }
+    .diff-btn.on { border-color: var(--gold); background: #f9a82522; color: var(--gold); }
+
+    #start-btn {
+      background: var(--gold); color: #000;
+      border: none; border-radius: 8px;
+      padding: 10px 36px;
+      font-size: .95rem; font-weight: bold; cursor: pointer;
+      letter-spacing: .06em; transition: background .2s;
+      box-shadow: 0 3px 10px #0005;
+    }
+    #start-btn:hover { background: var(--gold2); }
+
+    /* ════════════════════════════════════
+       ゲーム画面
+    ════════════════════════════════════ */
+    #game-screen { height: 100%; overflow: hidden; }
+
+    /* スコアバー */
+    #score-bar {
+      height: var(--score-h);
+      background: #0005;
+      display: flex; align-items: center;
+      padding: 0 4px; gap: 4px;
+      overflow-x: auto; flex-shrink: 0;
+    }
+    .sc-card {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 3px 7px; border-radius: 6px;
+      border: 1.5px solid transparent;
+      min-width: 58px; flex-shrink: 0;
+      transition: all .3s;
+    }
+    .sc-card.cur { border-color: var(--gold); background: #f9a82520; }
+    .sc-name  { font-size: .6rem;  color: #ccc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 72px; }
+    .sc-score { font-size: .88rem; color: var(--gold); font-weight: bold; line-height: 1.1; }
+    .sc-type  { font-size: .5rem;  color: #888; }
+
+    /* ステータスバー */
+    #status-bar {
+      height: var(--status-h);
+      background: #0003;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    #status-msg { font-size: .68rem; color: #fff; letter-spacing: .03em; }
+    .thinking-dot {
+      display: inline-block;
+      animation: dot 1.2s ease-in-out infinite;
+    }
+    .thinking-dot:nth-child(2) { animation-delay: .3s; }
+    .thinking-dot:nth-child(3) { animation-delay: .6s; }
+    @keyframes dot { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+    /* カードグリッド */
+    #card-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      grid-template-rows: repeat(6, 1fr);
+      gap: 2px;
+      padding: 3px;
+      min-height: 0;
+    }
+
+    /* ════════════════════════════════════
+       カード
+    ════════════════════════════════════ */
+    .card {
+      position: relative;
+      cursor: pointer;
+      border-radius: 4px;
+      perspective: 500px;
+      /* touch */
+      -webkit-user-select: none; user-select: none;
+    }
+    .card.matched { cursor: default; }
+
+    .card-inner {
+      width: 100%; height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform .35s ease;
+      border-radius: 4px;
+    }
+    .card.flipped .card-inner,
+    .card.matched .card-inner { transform: rotateY(180deg); }
+
+    .card-back, .card-front {
+      position: absolute; inset: 0;
+      border-radius: 4px;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      overflow: hidden;
+    }
+
+    /* ── 裏面 ── */
+    .card-back {
+      background: var(--card-back-color);
+      border: 1px solid #fff1;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card-back img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; }
+    .back-fb {
+      /* fallback when no back image */
+      width: 84%; height: 84%;
+      border: 1px solid #fff3; border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .back-fb-logo {
+      font-size: .38rem; color: #fff7;
+      font-weight: bold; letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    /* ── 表面 ── */
+    .card-front {
+      background: var(--card-front-color);
+      border: 1px solid #ddd;
+      transform: rotateY(180deg);
+      display: flex; flex-direction: column;
+    }
+    .card.matched .card-front { background: #e8f5e9; }
+
+    .c-tl {
+      position: absolute; top: 1px; left: 2px;
+      font-size: .5rem; font-weight: bold; line-height: 1.15;
+    }
+    .c-br {
+      position: absolute; bottom: 1px; right: 2px;
+      font-size: .5rem; font-weight: bold; line-height: 1.15;
+      transform: rotate(180deg);
+    }
+    .c-center {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .c-center-sym { font-size: .72rem; font-weight: bold; }
+
+    /* 数字カードのピップ（絵柄配置） */
+    .pip-area {
+      position: relative; width: 100%; height: 100%;
+    }
+    .pip {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-size: .42rem; line-height: 1; font-weight: bold;
+      pointer-events: none; user-select: none;
+    }
+    .pip.ace { font-size: .82rem; }
+    .pip.rot { transform: translate(-50%, -50%) rotate(180deg); }
+
+    /* タイトルへ戻るボタン */
+    #back-title-btn {
+      background: transparent; border: 1px solid #fff3;
+      border-radius: 5px; color: #bbb;
+      font-size: .6rem; padding: 3px 7px;
+      cursor: pointer; flex-shrink: 0; white-space: nowrap;
+      transition: all .2s;
+    }
+    #back-title-btn:hover { border-color: #fff8; color: #fff; }
+
+    /* スコアカード群コンテナ */
+    #score-cards {
+      display: flex; align-items: center; gap: 4px;
+      flex: 1; overflow-x: auto;
+    }
+    #score-cards::-webkit-scrollbar { height: 2px; }
+    #score-cards::-webkit-scrollbar-thumb { background: #fff3; }
+
+    /* 絵札エリア */
+    .face-wrap {
+      width: 82%; height: 82%;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; border-radius: 2px;
+    }
+    .face-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; display: block; }
+    .face-fb {
+      width: 100%; height: 100%;
+      display: none; /* shown via onerror */
+      align-items: center; justify-content: center;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .face-fb-txt { font-size: .62rem; font-weight: bold; text-align: center; line-height: 1.2; }
+
+    .red   { color: var(--red); }
+    .black { color: var(--black); }
+    .joker { color: #6a1b9a; }
+
+    /* ══ リザルト画面 ══ */
+    #result-screen {
+      align-items: center; justify-content: center;
+      gap: 14px; padding: 14px;
+    }
+    #result-screen h2 { color: var(--gold); font-size: clamp(1rem, 3vw, 1.5rem); }
+    #result-list {
+      background: #0004; border-radius: 10px;
+      padding: 12px 22px; min-width: 220px;
+      border: 1px solid #fff1;
+    }
+    .res-row {
+      display: flex; justify-content: space-between;
+      color: #ddd; font-size: .85rem;
+      padding: 5px 0; border-bottom: 1px solid #fff1; gap: 16px;
+    }
+    .res-row:last-child { border-bottom: none; }
+    .res-row.win { color: var(--gold); font-weight: bold; }
+
+    #again-btn {
+      background: var(--gold); color: #000;
+      border: none; border-radius: 8px;
+      padding: 10px 30px; font-size: .9rem;
+      font-weight: bold; cursor: pointer;
+    }
+
+    /* 著作権 */
+    #copyright {
+      position: fixed; bottom: 2px; right: 6px;
+      font-size: .42rem; color: #fff4;
+      pointer-events: none; z-index: 100;
+      letter-spacing: .06em;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── 縦向き警告 ── -->
+<div id="rotate-msg">
+  <div class="rotate-arrow">↺</div>
+  <div style="font-size:1.1rem">デバイスを横向きにしてください</div>
+  <div style="font-size:.8rem;color:#aaa">Please rotate to landscape</div>
+</div>
+
+<div id="app">
+
+  <!-- ══════════ セットアップ ══════════ -->
+  <div id="setup-screen" class="screen active">
+    <h1>神　経　衰　弱</h1>
+
+    <div class="setup-box">
+      <span class="lbl">プレイヤー人数（最大9名）</span>
+      <div class="count-btns" id="count-btns"></div>
+    </div>
+
+    <div class="setup-box">
+      <span class="lbl">プレイヤー設定（チェックで AI）</span>
+      <div id="player-list"></div>
+    </div>
+
+    <div class="setup-box">
+      <span class="lbl">AI 強さ</span>
+      <div class="diff-row" id="diff-btns">
+        <button class="diff-btn on" data-d="easy">やさしい</button>
+        <button class="diff-btn" data-d="normal">ふつう</button>
+        <button class="diff-btn" data-d="hard">つよい</button>
+      </div>
+    </div>
+
+    <button id="start-btn">ゲームスタート</button>
+    <div style="color:#fff4;font-size:.65rem">© oneforest. All rights reserved.</div>
+  </div>
+
+  <!-- ══════════ ゲーム ══════════ -->
+  <div id="game-screen" class="screen">
+    <div id="score-bar">
+      <button id="back-title-btn">◀ タイトル</button>
+      <div style="width:1px;height:28px;background:#fff2;flex-shrink:0;margin:0 2px"></div>
+      <div id="score-cards"></div>
+    </div>
+    <div id="status-bar"><span id="status-msg">ゲーム開始！</span></div>
+    <div id="card-grid"></div>
+  </div>
+
+  <!-- ══════════ リザルト ══════════ -->
+  <div id="result-screen" class="screen">
+    <h2>ゲーム終了</h2>
+    <div id="result-list"></div>
+    <button id="again-btn">もう一度</button>
+    <div style="color:#fff4;font-size:.6rem">© oneforest. All rights reserved.</div>
+  </div>
+
+</div>
+
+<div id="copyright">© oneforest. All rights reserved.</div>
+
+<!-- ══════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════ -->
+<script>
+/*
+ * ─────────────────────────────────────────────
+ *  画像ファイルの置き換え方法
+ *  ─────────────────────────────────────────────
+ *  このHTMLと同じ場所に images/ フォルダを作成し、
+ *  以下のファイルを配置すると自動的に使用されます。
+ *
+ *  【絵札（人物写真）】
+ *    images/face_J_spades.png    images/face_J_hearts.png
+ *    images/face_J_clubs.png     images/face_J_diamonds.png
+ *    images/face_Q_spades.png    images/face_Q_hearts.png
+ *    images/face_Q_clubs.png     images/face_Q_diamonds.png
+ *    images/face_K_spades.png    images/face_K_hearts.png
+ *    images/face_K_clubs.png     images/face_K_diamonds.png
+ *    images/face_JOKER_1.png     images/face_JOKER_2.png
+ *
+ *  【カード裏面（会社ロゴ）】
+ *    images/card_back.png
+ *
+ *  ファイルが存在しない場合はテキストで代替表示されます。
+ * ─────────────────────────────────────────────
+ */
+
+const IMG = './images/';
+
+// ─── デッキ生成 ───
+const SUITS = ['spades','hearts','clubs','diamonds'];
+const SYM   = { spades:'♠', hearts:'♥', clubs:'♣', diamonds:'♦' };
+const COL   = { spades:'black', hearts:'red', clubs:'black', diamonds:'red' };
+const FACES = ['J','Q','K'];
+
+// ─── ピップ（絵柄）配置テーブル [left%, top%] ───
+// top > 55% のピップは逆さ（rot クラス）で表示
+const PIP_POS = {
+  'A':  [[50,50]],
+  '2':  [[50,18],[50,82]],
+  '3':  [[50,15],[50,50],[50,85]],
+  '4':  [[25,18],[75,18],[25,82],[75,82]],
+  '5':  [[25,15],[75,15],[50,50],[25,85],[75,85]],
+  '6':  [[25,15],[75,15],[25,50],[75,50],[25,85],[75,85]],
+  '7':  [[25,12],[75,12],[50,30],[25,55],[75,55],[25,85],[75,85]],
+  '8':  [[25,12],[75,12],[50,30],[25,53],[75,53],[50,72],[25,88],[75,88]],
+  '9':  [[25,10],[75,10],[25,32],[75,32],[50,50],[25,68],[75,68],[25,90],[75,90]],
+  '10': [[25,10],[75,10],[50,26],[25,44],[75,44],[25,62],[75,62],[50,74],[25,90],[75,90]],
+};
+
+function makePipLayout(rank, sym, colorClass) {
+  const positions = PIP_POS[rank];
+  if (!positions) return `<span class="c-center-sym ${colorClass}">${sym}</span>`;
+  const isAce = (rank === 'A');
+  const pips = positions.map(([l, t]) => {
+    const rot = (!isAce && t > 55) ? ' rot' : '';
+    return `<span class="pip${isAce ? ' ace' : ''}${rot} ${colorClass}" style="left:${l}%;top:${t}%">${sym}</span>`;
+  }).join('');
+  return `<div class="pip-area">${pips}</div>`;
+}
+
+function buildDeck() {
+  const deck = [];
+  let id = 0;
+  SUITS.forEach(suit => {
+    ['A','2','3','4','5','6','7','8','9','10','J','Q','K'].forEach(rank => {
+      deck.push({
+        id: id++, suit, rank,
+        matchKey: rank,
+        isFace: FACES.includes(rank), isJoker: false,
+        color: COL[suit], sym: SYM[suit],
+        img: FACES.includes(rank) ? `face_${rank}_${suit}.png` : null
+      });
+    });
+  });
+  deck.push({ id:id++, suit:'joker', rank:'JOKER', matchKey:'JOKER', isFace:false, isJoker:true, color:'joker', sym:'★', img:'face_JOKER_1.png' });
+  deck.push({ id:id++, suit:'joker', rank:'JOKER', matchKey:'JOKER', isFace:false, isJoker:true, color:'joker', sym:'★', img:'face_JOKER_2.png' });
+  return deck;
+}
+
+function shuffle(a) {
+  const b = [...a];
+  for (let i = b.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [b[i],b[j]] = [b[j],b[i]];
+  }
+  return b;
+}
+
+// ─── ゲーム状態 ───
+const G = {
+  players: [],
+  cards: [],
+  flipped: [],        // 現在めくっているカードのインデックス
+  matched: new Set(), // マッチ済みカードのインデックス
+  current: 0,
+  busy: false,
+  memory: {},         // AI の記憶: { idx: matchKey }
+  difficulty: 'easy'  // easy / normal / hard
+};
+
+// ─── AI 記憶率（難易度別） ───
+const MEMORY_RATE = { easy: 0.3, normal: 0.65, hard: 1.0 };
+
+// ════════════════════════════════════════
+//  セットアップ
+// ════════════════════════════════════════
+let setupCount = 2;
+
+function initSetup() {
+  // 人数ボタン
+  const cb = document.getElementById('count-btns');
+  cb.innerHTML = '';
+  for (let i = 1; i <= 9; i++) {
+    const b = document.createElement('button');
+    b.className = 'cnt-btn' + (i === setupCount ? ' on' : '');
+    b.textContent = i;
+    b.addEventListener('click', () => {
+      setupCount = i;
+      cb.querySelectorAll('.cnt-btn').forEach((x,k) => x.classList.toggle('on', k+1===i));
+      renderPlayerList();
+    });
+    cb.appendChild(b);
+  }
+
+  // 難易度ボタン
+  document.querySelectorAll('.diff-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.diff-btn').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      G.difficulty = b.dataset.d;
+    });
+  });
+
+  renderPlayerList();
+}
+
+function renderPlayerList() {
+  const list = document.getElementById('player-list');
+  list.innerHTML = '';
+  for (let i = 0; i < setupCount; i++) {
+    const def  = i === 0 ? 'プレイヤー1' : `CPU${i}`;
+    const defAI = i > 0;
+    const row = document.createElement('div');
+    row.className = 'p-row';
+    row.innerHTML = `
+      <span class="p-num">P${i+1}</span>
+      <input type="text" value="${def}" placeholder="名前" data-i="${i}">
+      <label class="ai-lbl">
+        <input type="checkbox" data-i="${i}" ${defAI?'checked':''}> AI
+      </label>`;
+    list.appendChild(row);
+  }
+}
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  const names = document.querySelectorAll('#player-list input[type="text"]');
+  const ais   = document.querySelectorAll('#player-list input[type="checkbox"]');
+  G.players = [];
+  names.forEach((n, i) => {
+    G.players.push({ name: n.value.trim() || `P${i+1}`, isAI: ais[i].checked, score: 0 });
+  });
+  startGame();
+});
+
+// ════════════════════════════════════════
+//  ゲーム開始
+// ════════════════════════════════════════
+function startGame() {
+  G.cards   = shuffle(buildDeck());
+  G.flipped = [];
+  G.matched = new Set();
+  G.current = 0;
+  G.busy    = false;
+  G.memory  = {};
+  G.players.forEach(p => p.score = 0);
+
+  renderScoreBar();
+  renderGrid();
+  showScreen('game-screen');
+  setStatus(`${G.players[0].name} のターン`);
+
+  if (G.players[0].isAI) setTimeout(aiTurn, 900);
+}
+
+// ════════════════════════════════════════
+//  グリッド描画
+// ════════════════════════════════════════
+function renderGrid() {
+  const grid = document.getElementById('card-grid');
+  grid.innerHTML = '';
+  G.cards.forEach((card, idx) => {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.id = `c${idx}`;
+    el.innerHTML = makeCardHTML(card);
+    el.addEventListener('click', () => onCardClick(idx));
+    grid.appendChild(el);
+  });
+}
+
+function makeCardHTML(card) {
+  // ── 裏面 ──
+  const back = `
+    <div class="card-back">
+      <img src="${IMG}card_back.png" alt="back"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div class="back-fb" style="display:none">
+        <span class="back-fb-logo">oneforest</span>
+      </div>
+    </div>`;
+
+  // ── 表面 ──
+  let front;
+  const cc = card.isJoker ? 'joker' : card.color;
+
+  if (card.isJoker) {
+    front = `
+      <div class="card-front">
+        <div class="c-tl joker">JKR</div>
+        <div class="c-center">
+          <div class="face-wrap">
+            <img src="${IMG}${card.img}" alt="JOKER"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="face-fb" style="display:none">
+              <div class="face-fb-txt joker" style="font-size:.65rem">JOKER</div>
+            </div>
+          </div>
+        </div>
+        <div class="c-br joker">JKR</div>
+      </div>`;
+  } else if (card.isFace) {
+    front = `
+      <div class="card-front">
+        <div class="c-tl ${cc}">${card.rank}<br>${card.sym}</div>
+        <div class="c-center">
+          <div class="face-wrap">
+            <img src="${IMG}${card.img}" alt="${card.rank}${card.sym}"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="face-fb" style="display:none">
+              <div class="face-fb-txt ${cc}">${card.rank}</div>
+              <div class="face-fb-txt ${cc}">${card.sym}</div>
+            </div>
+          </div>
+        </div>
+        <div class="c-br ${cc}">${card.rank}<br>${card.sym}</div>
+      </div>`;
+  } else {
+    const pips = makePipLayout(card.rank, card.sym, cc);
+    front = `
+      <div class="card-front">
+        <div class="c-tl ${cc}">${card.rank}<br>${card.sym}</div>
+        <div class="c-center">${pips}</div>
+        <div class="c-br ${cc}">${card.rank}<br>${card.sym}</div>
+      </div>`;
+  }
+
+  return `<div class="card-inner">${back}${front}</div>`;
+}
+
+// ════════════════════════════════════════
+//  スコアバー
+// ════════════════════════════════════════
+function renderScoreBar() {
+  const bar = document.getElementById('score-cards');
+  bar.innerHTML = '';
+  G.players.forEach((p, i) => {
+    const d = document.createElement('div');
+    d.className = 'sc-card' + (i === G.current ? ' cur' : '');
+    d.id = `sp${i}`;
+    d.innerHTML = `
+      <div class="sc-name">${p.name}</div>
+      <div class="sc-score">${p.score}</div>
+      <div class="sc-type">${p.isAI ? 'AI' : '人間'}</div>`;
+    bar.appendChild(d);
+  });
+}
+
+function updateScoreBar() {
+  G.players.forEach((p, i) => {
+    const d = document.getElementById(`sp${i}`);
+    if (!d) return;
+    d.querySelector('.sc-score').textContent = p.score;
+    d.classList.toggle('cur', i === G.current);
+  });
+}
+
+// ════════════════════════════════════════
+//  カード操作
+// ════════════════════════════════════════
+function onCardClick(idx) {
+  if (G.busy) return;
+  if (G.players[G.current].isAI) return;
+  if (G.matched.has(idx)) return;
+  if (G.flipped.includes(idx)) return;
+  if (G.flipped.length >= 2) return;
+  flipCard(idx);
+}
+
+function flipCard(idx) {
+  const el = document.getElementById(`c${idx}`);
+  el.classList.add('flipped');
+  G.flipped.push(idx);
+
+  // AI 記憶登録
+  if (Math.random() < MEMORY_RATE[G.difficulty]) {
+    G.memory[idx] = G.cards[idx].matchKey;
+  }
+
+  if (G.flipped.length === 2) {
+    G.busy = true;
+    setTimeout(checkMatch, 750);
+  }
+}
+
+function checkMatch() {
+  const [i1, i2] = G.flipped;
+  const match = G.cards[i1].matchKey === G.cards[i2].matchKey;
+
+  if (match) {
+    G.matched.add(i1);
+    G.matched.add(i2);
+    document.getElementById(`c${i1}`).classList.add('matched');
+    document.getElementById(`c${i2}`).classList.add('matched');
+    G.players[G.current].score++;
+    G.flipped = [];
+    G.busy = false;
+    updateScoreBar();
+
+    if (G.matched.size === G.cards.length) {
+      setTimeout(endGame, 600);
+      return;
+    }
+    setStatus(`${G.players[G.current].name} が揃えました！　もう一度！`);
+    if (G.players[G.current].isAI) setTimeout(aiTurn, 700);
+  } else {
+    setStatus('外れ… 次のプレイヤーへ');
+    setTimeout(() => {
+      document.getElementById(`c${i1}`).classList.remove('flipped');
+      document.getElementById(`c${i2}`).classList.remove('flipped');
+      G.flipped = [];
+      G.busy = false;
+      nextPlayer();
+    }, 800);
+  }
+}
+
+function nextPlayer() {
+  G.current = (G.current + 1) % G.players.length;
+  updateScoreBar();
+  const p = G.players[G.current];
+  if (p.isAI) {
+    setStatus(`<span class="thinking-dot">●</span><span class="thinking-dot">●</span><span class="thinking-dot">●</span> ${p.name} が考え中`);
+    setTimeout(aiTurn, 600);
+  } else {
+    setStatus(`${p.name} のターン`);
+  }
+}
+
+// ════════════════════════════════════════
+//  AI ロジック
+// ════════════════════════════════════════
+function aiTurn() {
+  if (G.busy) return;
+
+  // 未マッチ・未めくり のインデックス一覧
+  const avail = G.cards
+    .map((_,i) => i)
+    .filter(i => !G.matched.has(i) && !G.flipped.includes(i));
+
+  if (avail.length === 0) return;
+
+  // 記憶の中からペアを探す
+  const known = {};
+  Object.entries(G.memory).forEach(([i, key]) => {
+    const n = parseInt(i);
+    if (avail.includes(n)) {
+      if (!known[key]) known[key] = [];
+      known[key].push(n);
+    }
+  });
+
+  let first = null, second = null;
+  for (const [, arr] of Object.entries(known)) {
+    if (arr.length >= 2) { [first, second] = arr; break; }
+  }
+
+  if (first !== null) {
+    // 既知ペアを使う
+    setTimeout(() => {
+      flipCard(first);
+      setTimeout(() => flipCard(second), 520);
+    }, 350);
+    return;
+  }
+
+  // ランダムに1枚目を選ぶ
+  const pick1 = avail[Math.floor(Math.random() * avail.length)];
+  setTimeout(() => {
+    flipCard(pick1);
+    const key1 = G.cards[pick1].matchKey;
+
+    // 記憶で2枚目が分かるか
+    const knownPair = Object.entries(G.memory).find(([i, k]) => {
+      const n = parseInt(i);
+      return n !== pick1 && k === key1 && avail.includes(n);
+    });
+
+    setTimeout(() => {
+      if (knownPair) {
+        flipCard(parseInt(knownPair[0]));
+      } else {
+        const avail2 = avail.filter(i => i !== pick1);
+        flipCard(avail2[Math.floor(Math.random() * avail2.length)]);
+      }
+    }, 520);
+  }, 400);
+}
+
+// ════════════════════════════════════════
+//  ゲーム終了
+// ════════════════════════════════════════
+function endGame() {
+  const sorted = G.players
+    .map((p, i) => ({ ...p, idx: i }))
+    .sort((a, b) => b.score - a.score);
+
+  const top = sorted[0].score;
+  const winners = sorted.filter(p => p.score === top);
+
+  const list = document.getElementById('result-list');
+  list.innerHTML = '';
+  sorted.forEach((p, rank) => {
+    const row = document.createElement('div');
+    const isWin = p.score === top;
+    row.className = 'res-row' + (isWin ? ' win' : '');
+    row.innerHTML = `
+      <span>${rank+1}位　${p.name}${isWin ? '　🏆' : ''}</span>
+      <span>${p.score} 枚</span>`;
+    list.appendChild(row);
+  });
+
+  showScreen('result-screen');
+}
+
+// ════════════════════════════════════════
+//  ユーティリティ
+// ════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function setStatus(html) {
+  document.getElementById('status-msg').innerHTML = html;
+}
+
+document.getElementById('again-btn').addEventListener('click', () => {
+  showScreen('setup-screen');
+  initSetup();
+});
+
+document.getElementById('back-title-btn').addEventListener('click', () => {
+  if (confirm('タイトルに戻りますか？\nゲームの進行状況は失われます。')) {
+    G.busy = true; // AI の動作を停止
+    showScreen('setup-screen');
+    initSetup();
+    G.busy = false;
+  }
+});
+
+// ════════════════════════════════════════
+//  横向きロック
+// ════════════════════════════════════════
+function lockLandscape() {
+  try {
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(() => {});
+    }
+  } catch(e) {}
+}
+
+// ════════════════════════════════════════
+//  初期化
+// ════════════════════════════════════════
+window.addEventListener('load', () => {
+  lockLandscape();
+  initSetup();
+});
+
+// 難易度のデフォルト値を設定
+G.difficulty = 'easy';
+</script>
+</body>
+</html>
