@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>神経衰弱 | oneforest</title>
+  <title>神経衰弱 | One Forest LLC</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -389,7 +389,7 @@
     </div>
 
     <button id="start-btn">ゲームスタート</button>
-    <div style="color:#fff4;font-size:.65rem">© oneforest. All rights reserved.</div>
+    <div style="color:#fff4;font-size:.65rem">© 2026 One Forest LLC. All rights reserved.</div>
   </div>
 
   <!-- ══════════ ゲーム ══════════ -->
@@ -408,12 +408,12 @@
     <h2>ゲーム終了</h2>
     <div id="result-list"></div>
     <button id="again-btn">もう一度</button>
-    <div style="color:#fff4;font-size:.6rem">© oneforest. All rights reserved.</div>
+    <div style="color:#fff4;font-size:.6rem">© 2026 One Forest LLC. All rights reserved.</div>
   </div>
 
 </div>
 
-<div id="copyright">© oneforest. All rights reserved.</div>
+<div id="copyright">© 2026 One Forest LLC. All rights reserved.</div>
 
 <!-- ══════════════════════════════════════════
      JAVASCRIPT
@@ -427,13 +427,10 @@
  *  以下のファイルを配置すると自動的に使用されます。
  *
  *  【絵札（人物写真）】
- *    images/face_J_spades.png    images/face_J_hearts.png
- *    images/face_J_clubs.png     images/face_J_diamonds.png
- *    images/face_Q_spades.png    images/face_Q_hearts.png
- *    images/face_Q_clubs.png     images/face_Q_diamonds.png
- *    images/face_K_spades.png    images/face_K_hearts.png
- *    images/face_K_clubs.png     images/face_K_diamonds.png
- *    images/face_JOKER_1.png     images/face_JOKER_2.png
+ *    images/j.png      ジャック（全スート共通）
+ *    images/q.png      クイーン（全スート共通）
+ *    images/k.png      キング（全スート共通）
+ *    images/joker.png  ジョーカー（両枚共通）
  *
  *  【カード裏面（会社ロゴ）】
  *    images/card_back.png
@@ -449,6 +446,7 @@ const SUITS = ['spades','hearts','clubs','diamonds'];
 const SYM   = { spades:'♠', hearts:'♥', clubs:'♣', diamonds:'♦' };
 const COL   = { spades:'black', hearts:'red', clubs:'black', diamonds:'red' };
 const FACES = ['J','Q','K'];
+const FACE_IMG = { J: 'j.png', Q: 'q.png', K: 'k.png' };
 
 // ─── ピップ（絵柄）配置テーブル [left%, top%] ───
 // top > 55% のピップは逆さ（rot クラス）で表示
@@ -486,12 +484,12 @@ function buildDeck() {
         matchKey: rank,
         isFace: FACES.includes(rank), isJoker: false,
         color: COL[suit], sym: SYM[suit],
-        img: FACES.includes(rank) ? `face_${rank}_${suit}.png` : null
+        img: FACES.includes(rank) ? FACE_IMG[rank] : null
       });
     });
   });
-  deck.push({ id:id++, suit:'joker', rank:'JOKER', matchKey:'JOKER', isFace:false, isJoker:true, color:'joker', sym:'★', img:'face_JOKER_1.png' });
-  deck.push({ id:id++, suit:'joker', rank:'JOKER', matchKey:'JOKER', isFace:false, isJoker:true, color:'joker', sym:'★', img:'face_JOKER_2.png' });
+  deck.push({ id:id++, suit:'joker', rank:'JOKER', matchKey:'JOKER', isFace:false, isJoker:true, color:'joker', sym:'★', img:'joker.png' });
+  deck.push({ id:id++, suit:'joker', rank:'JOKER', matchKey:'JOKER', isFace:false, isJoker:true, color:'joker', sym:'★', img:'joker.png' });
   return deck;
 }
 
@@ -623,7 +621,7 @@ function makeCardHTML(card) {
       <img src="${IMG}card_back.png" alt="back"
            onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
       <div class="back-fb" style="display:none">
-        <span class="back-fb-logo">oneforest</span>
+        <span class="back-fb-logo">One Forest LLC</span>
       </div>
     </div>`;
 
